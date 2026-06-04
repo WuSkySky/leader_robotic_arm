@@ -23,14 +23,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <SCServo.h>
+#include "get_robotic_arm_pos_feedback.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-void examples(void);
-void setup(void);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -113,20 +110,31 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+
   //等待舵机上电启动
   HAL_Delay(1000);
-  //舵机库初始化配置
-  setup();
+
+  setup_get_robotic_arm_pos_feedback();
+
+  HAL_Delay(1000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    int start_time = HAL_GetTick();
+
+    task_get_robotic_arm_pos_feedback();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    examples();
+    int sleep_time = 1/60.0*1000 - (HAL_GetTick() - start_time);
+    if(sleep_time > 0)
+    {
+        HAL_Delay( sleep_time);
+    }
   }
   /* USER CODE END 3 */
 }

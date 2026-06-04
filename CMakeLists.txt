@@ -46,7 +46,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # 源文件
 file(GLOB_RECURSE SOURCESFILES
-    "dev/examples/SMS_STS/WriteSpe.c"
+    "dev/get_robotic_arm_pos_feedback/*.c"
     "dev/SCSLib/*.c"
 )
 
