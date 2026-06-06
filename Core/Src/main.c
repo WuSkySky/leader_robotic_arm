@@ -18,13 +18,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32f1xx_hal_uart.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "leader_robotic_arm.h"
+#include "robotic_arm_control_task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,8 +43,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
-static LeaderRoboticArm robotic_arm;
 
 /* USER CODE END PV */
 
@@ -114,13 +111,6 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  //等待舵机上电启动
-  HAL_Delay(1000);
-
-  leader_robotic_arm_init(&robotic_arm);
-
-  HAL_Delay(1000);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -129,9 +119,7 @@ int main(void)
   {
     int start_time = HAL_GetTick();
 
-    // leader_robotic_arm_get_pos(&robotic_arm);
-    uint8_t data[4] = {0x00, 0x02, 0x01, 0xAA};
-    int a = HAL_UART_Transmit(&huart1, data, 4, 100);
+    robotic_arm_control_task_update();
 
     /* USER CODE END WHILE */
 
