@@ -8,14 +8,15 @@ static void recode_pos_raw(FEETECHServo* servo)
     servo->pos_raw = ReadPos(servo->id);
 }
 
+static void recode_zero(FEETECHServo* servo)
+{
+    servo->pos_zero = servo->pos_raw;
+    servo->flag_has_recoded_zero = 1;
+    
+}
+
 static void proc_zero(FEETECHServo* servo)
 {
-    if (!servo->flag_has_recoded_zero) 
-    {
-        servo->pos_zero = servo->pos_raw;
-        servo->flag_has_recoded_zero = 1;
-    }
-
     servo->pos_in_zero= servo->pos_raw - servo->pos_zero;
 }
 
@@ -51,10 +52,15 @@ void FEETECH_servo_init(FEETECHServo* servos, int id)
     servos->cycle = 0;
 }
 
-void FEETECH_servo_get_pos(FEETECHServo* servos)
+void FEETECH_servo_get_pos(FEETECHServo* servo)
 {
-    recode_pos_raw(servos);
-    proc_zero(servos);
-    proc_mutil_cycle(servos);
-    pos_normalize(servos);
+    recode_pos_raw(servo);
+
+    // if (!servo->flag_has_recoded_zero) 
+    // {
+    //     recode_zero(servo);
+    // }
+    proc_zero(servo);
+    proc_mutil_cycle(servo);
+    pos_normalize(servo);
 }

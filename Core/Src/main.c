@@ -111,6 +111,8 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  robotic_arm_control_task_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
