@@ -1,5 +1,6 @@
 #include "feetech.h"
 #include "SCServo.h"
+#include <math.h>
 
 static void recode_pos_raw(FEETECHServo* servo)
 {
@@ -20,6 +21,11 @@ static void proc_zero(FEETECHServo* servo)
     servo->pos_in_zero= servo->pos_raw - servo->pos_zero;
 }
 
+static void proc_zero_in_middle_mode(FEETECHServo* servo)
+{
+    servo->pos_in_zero= servo->pos_raw - servo->pos_zero - 2048;
+}
+
 static void proc_mutil_cycle(FEETECHServo* servo)
 {
     if (servo->pos_in_zero - servo->pos_in_zero_last > 2048)
@@ -37,7 +43,7 @@ static void proc_mutil_cycle(FEETECHServo* servo)
 
 static void pos_normalize(FEETECHServo* servo)
 {
-    servo->pos = servo->pos_in_mutil_cycle*0.087;
+    servo->pos = servo->pos_in_mutil_cycle * 0.087 * (M_PI / 180.0);
 }
 
 void FEETECH_servo_init(FEETECHServo* servos, int id)
@@ -60,7 +66,7 @@ void FEETECH_servo_get_pos(FEETECHServo* servo)
     // {
     //     recode_zero(servo);
     // }
-    proc_zero(servo);
+    proc_zero_in_middle_mode(servo);
     proc_mutil_cycle(servo);
     pos_normalize(servo);
 }

@@ -5,9 +5,9 @@
 
 typedef struct
 {
-    float pos[5];
+    float pos[6];
 
-    FEETECHServo servos[5];
+    FEETECHServo servos[6];
 } LeaderRoboticArm;
 
 void leader_robotic_arm_init(LeaderRoboticArm*);

@@ -3,8 +3,6 @@
 
 void leader_robotic_arm_init(LeaderRoboticArm* arm)
 {
-    arm->pos[0] = 0;
-
     for(int i = 0; i < sizeof(arm->servos) / sizeof(arm->servos[0]); i++)
     {
         arm->pos[i] = 0;

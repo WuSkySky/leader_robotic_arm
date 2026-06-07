@@ -5,16 +5,20 @@
 
 static LeaderRoboticArm robotic_arm;
 
+uint8_t tx_buf[26];
+
 static void robotic_arm_send()
 {
-    uint8_t tx_buf[32];
+    // tx_buf[0] = 0x00; // dst_addr_h
+    // tx_buf[1] = 0x02; // dst_addr_l
+    // tx_buf[2] = 0x01; // channel
+    // tx_buf[3] = 0xAA; // head
+    // memcpy(tx_buf + 4, robotic_arm.pos, sizeof(robotic_arm.pos)); // pos
+    // tx_buf[31] = 0x55; // tail
 
-    tx_buf[0] = 0x00; // dst_addr_h
-    tx_buf[1] = 0x02; // dst_addr_l
-    tx_buf[2] = 0x01; // channel
-    tx_buf[3] = 0xAA; // head
-    memcpy(tx_buf + 4, robotic_arm.pos, sizeof(robotic_arm.pos)); // pos
-    tx_buf[31] = 0x55; // tail
+    tx_buf[0] = 0xAA; // head
+    memcpy(tx_buf + 1, robotic_arm.pos, sizeof(robotic_arm.pos)); // pos
+    tx_buf[25] = 0x55; // tail
 
     // 发送
     HAL_UART_Transmit
@@ -24,9 +28,6 @@ static void robotic_arm_send()
         sizeof(tx_buf),
         10
     );
-    // uint8_t test_buf[4] = {0x00, 0x02, 0x01, 0xAA};
-
-    // HAL_UART_Transmit(&huart1, test_buf, sizeof(test_buf),10);
 }
 
 void robotic_arm_control_task_init(void)
