@@ -63,7 +63,7 @@ void ftUart_Send(uint8_t *nDat , int nLen)
 //FT舵机串口指令应答接收函数
 int ftUart_Read(uint8_t *nDat, int nLen)
 {
-	if(HAL_OK!=HAL_UART_Receive(&huart2, nDat, nLen, 100)){
+	if(HAL_OK!=HAL_UART_Receive(&huart2, nDat, nLen, 5)){
 		return 0;
 	}else{
 		return nLen;
