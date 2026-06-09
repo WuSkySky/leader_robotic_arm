@@ -4,8 +4,6 @@
 
 static void recode_pos_raw(FEETECHServo* servo)
 {
-    if(getLastError()) return;
-
     servo->pos_raw = ReadPos(servo->id);
 }
 
