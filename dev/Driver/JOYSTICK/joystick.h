@@ -4,18 +4,6 @@
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 
-// 摇杆 ADC 通道数量。修改 CubeMX 中 ADC 常规转换通道数量时，需要同步修改该值。
-#define JOYSTICK_NUM 4
-
-// ADC 满量程原始值。12 位 ADC 为 4095；如果 CubeMX 中 ADC 分辨率改为 10 位，应改为 1023。
-#define JOYSTICK_ADC_MAX 4095.0f
-
-// ADC 参考电压，单位 V。通常等于 MCU VDDA；如果硬件参考电压不是 3.3V，需要同步修改。
-#define JOYSTICK_VREF 3.3f
-
-// 摇杆零位死区。归一化值绝对值小于该值时输出 0；如果零位抖动更大，可以适当增大。
-#define JOYSTICK_DEADZONE 0.03f
-
 /**
  * @brief 摇杆通道状态。
  */
