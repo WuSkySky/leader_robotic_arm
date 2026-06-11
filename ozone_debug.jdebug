@@ -24,11 +24,11 @@ void OnProjectLoad (void) {
   //
   Project.AddPathSubstitute ("/home/skysky/workspace/leader_robotic_arm", "$(ProjectDir)");
   Project.AddPathSubstitute ("/home/skysky/workspace/leader_robotic_arm", "$(ProjectDir)");
-  Project.SetDevice ("STM32F103C8");
+  Project.SetDevice ("STM32F407VE");
   Project.SetHostIF ("USB", "609799999");
   Project.SetTargetIF ("SWD");
   Project.SetTIFSpeed ("4 MHz");
-  Project.AddSvdFile ("$(InstallDir)/Config/CPU/Cortex-M3.svd");
+  Project.AddSvdFile ("$(InstallDir)/Config/CPU/Cortex-M4.svd");
   //
   // User settings
   //
