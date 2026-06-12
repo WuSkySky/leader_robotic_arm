@@ -1,5 +1,11 @@
 #include "key.h"
 
+// 按键数量。修改 PE2~PE11 按键数量时，需要同步修改该值和 key.c 中的引脚表。
+enum
+{
+    KEY_NUM = 10
+};
+
 // 按键消抖时间，单位 ms。若按键抖动仍明显可调大，若响应偏慢可调小。
 static const uint32_t KEY_DEBOUNCE_MS = 30;
 

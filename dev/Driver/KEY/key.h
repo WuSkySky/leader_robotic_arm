@@ -4,12 +4,6 @@
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 
-enum
-{
-    // 按键数量。修改 PE2~PE11 按键数量时，需要同步修改该值和 key.c 中的引脚表。
-    KEY_NUM = 10
-};
-
 /**
  * @brief 初始化按键模块。
  *
