@@ -34,7 +34,10 @@ typedef struct
 static LeaderRoboticArm robotic_arm;
 
 // 控制任务中的摇杆状态变量
-static Joystick joysticks[CONTROL_JOYSTICK_NUM];
+static Joystick joysticks[4];
+
+//keys
+static Key keys[9];
 
 // 控制任务中的底盘控制状态变量
 static ChassisControl chassis;
@@ -60,11 +63,20 @@ static void control_send(void)
     HAL_UART_Transmit(&huart1, tx_buf, sizeof(tx_buf), 10);
 }
 
-/**
- * @brief 初始化控制任务。
- *
- * 初始化机械臂、底盘控制量、启动摇杆 ADC DMA，并记录上电后的摇杆零位。
- */
+static void keys_init(void)
+{
+    key_init(&keys[0], 0, GPIOE, GPIO_PIN_2, GPIO_PIN_RESET, 20);
+    key_init(&keys[1], 1, GPIOE, GPIO_PIN_3, GPIO_PIN_RESET, 20);
+    key_init(&keys[2], 2, GPIOE, GPIO_PIN_4, GPIO_PIN_RESET, 20);
+    key_init(&keys[3], 3, GPIOE, GPIO_PIN_5, GPIO_PIN_RESET, 20);
+    key_init(&keys[4], 4, GPIOE, GPIO_PIN_6, GPIO_PIN_RESET, 20);
+    key_init(&keys[5], 5, GPIOE, GPIO_PIN_7, GPIO_PIN_RESET, 20);
+    key_init(&keys[6], 6, GPIOE, GPIO_PIN_8, GPIO_PIN_RESET, 20);
+    key_init(&keys[7], 7, GPIOE, GPIO_PIN_9, GPIO_PIN_RESET, 20);
+    key_init(&keys[8], 8, GPIOE, GPIO_PIN_10, GPIO_PIN_RESET, 20);
+    key_init(&keys[9], 9, GPIOE, GPIO_PIN_11, GPIO_PIN_RESET, 20);
+}
+
 void control_task_init(void)
 {
     // 等待舵机上电启动。
@@ -77,7 +89,8 @@ void control_task_init(void)
     chassis.vw = 0.0f;
 
     JOYSTICK_all_init(joysticks, CONTROL_JOYSTICK_NUM);
-    KEY_init();
+
+    keys_init();
 }
 
 /**
@@ -89,7 +102,6 @@ void control_task_update(void)
 {
     leader_robotic_arm_get_pos(&robotic_arm);
     JOYSTICK_all_get_value(joysticks, CONTROL_JOYSTICK_NUM);
-    KEY_update();
     chassis_update();
     control_send();
 }
