@@ -1,4 +1,5 @@
 #include "control_task.h"
+#include "key.h"
 #include "main.h"
 #include "usart.h"
 #include <string.h>
@@ -14,6 +15,9 @@ static const float CHASSIS_VW_MAX = 1.57f;
 
 enum
 {
+    // 控制任务使用的摇杆数量。修改 ADC 摇杆通道数量时，需要同步修改该值。
+    CONTROL_JOYSTICK_NUM = 4,
+
     // 串口控制帧长度：帧头 1 字节 + 机械臂 6 个 float + 底盘 3 个 float + 帧尾 1 字节。
     CONTROL_TX_FRAME_LEN = 38
 };
@@ -30,7 +34,7 @@ typedef struct
 static LeaderRoboticArm robotic_arm;
 
 // 控制任务中的摇杆状态变量
-static Joystick joysticks[CONTROL_TX_FRAME_LEN];
+static Joystick joysticks[CONTROL_JOYSTICK_NUM];
 
 // 控制任务中的底盘控制状态变量
 static ChassisControl chassis;
@@ -72,7 +76,8 @@ void control_task_init(void)
     chassis.vy = 0.0f;
     chassis.vw = 0.0f;
 
-    JOYSTICK_all_init(joysticks, CONTROL_TX_FRAME_LEN);
+    JOYSTICK_all_init(joysticks, CONTROL_JOYSTICK_NUM);
+    KEY_init();
 }
 
 /**
@@ -83,7 +88,8 @@ void control_task_init(void)
 void control_task_update(void)
 {
     leader_robotic_arm_get_pos(&robotic_arm);
-    JOYSTICK_all_get_value(joysticks, CONTROL_TX_FRAME_LEN);
+    JOYSTICK_all_get_value(joysticks, CONTROL_JOYSTICK_NUM);
+    KEY_update();
     chassis_update();
     control_send();
 }

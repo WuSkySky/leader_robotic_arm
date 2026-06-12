@@ -25,3 +25,29 @@
 | 3 | `vx` | 前后移动 |
 | 2 | `vy` | 左右平移 |
 | 0 | `vw` | 左右旋转 |
+
+## 按键配置
+
+按键使用 `PE2~PE11`，共 10 个。硬件按下接 GND，因此 CubeMX 中必须配置为内部上拉和双边沿 EXTI。
+
+| 按键 ID | 引脚 | 按下电平 |
+| ------- | ---- | -------- |
+| KEY0 | PE2 | 低电平 |
+| KEY1 | PE3 | 低电平 |
+| KEY2 | PE4 | 低电平 |
+| KEY3 | PE5 | 低电平 |
+| KEY4 | PE6 | 低电平 |
+| KEY5 | PE7 | 低电平 |
+| KEY6 | PE8 | 低电平 |
+| KEY7 | PE9 | 低电平 |
+| KEY8 | PE10 | 低电平 |
+| KEY9 | PE11 | 低电平 |
+
+CubeMX 需要保持以下配置：
+
+| 项目 | 配置 |
+| ---- | ---- |
+| PE2~PE11 Mode | `GPIO_EXTI` |
+| Trigger | `Rising/Falling edge` |
+| Pull-up/Pull-down | `Pull-up` |
+| NVIC | 开启 `EXTI2_IRQn`、`EXTI3_IRQn`、`EXTI4_IRQn`、`EXTI9_5_IRQn`、`EXTI15_10_IRQn` |
