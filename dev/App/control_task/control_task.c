@@ -15,11 +15,9 @@ static const float CHASSIS_VW_MAX = 1.57f;
 
 enum
 {
-    // 控制任务使用的摇杆数量。修改 ADC 摇杆通道数量时，需要同步修改该值。
-    CONTROL_JOYSTICK_NUM = 4,
-
-    // 串口控制帧长度：帧头 1 字节 + 机械臂 6 个 float + 底盘 3 个 float + 帧尾 1 字节。
-    CONTROL_TX_FRAME_LEN = 38
+    // 串口通讯帧长度。修改 README 中串口帧协议时，需要同步修改该值和 control_send()。
+    CONTROL_TX_FRAME_LEN = 29,
+    CONTROL_JOYSTICK_NUM = JOYSTICK_NUM
 };
 
 // 底盘控制量。
@@ -34,15 +32,41 @@ typedef struct
 static LeaderRoboticArm robotic_arm;
 
 // 控制任务中的摇杆状态变量
-static Joystick joysticks[4];
+static Joystick joysticks[JOYSTICK_NUM];
 
 //keys
-static Key keys[9];
+static Key keys[KEYS_NUM];
 
 // 控制任务中的底盘控制状态变量
 static ChassisControl chassis;
 
-static uint8_t tx_buf[CONTROL_TX_FRAME_LEN];
+static uint8_t tx_frame_1[CONTROL_TX_FRAME_LEN];
+static uint8_t tx_frame_2[CONTROL_TX_FRAME_LEN];
+
+static void joysticks_init(void)
+{
+    for (int i = 0; i < JOYSTICK_NUM; i++)
+    {
+        joystick_init(&joysticks[i], i);
+    }
+
+    joystick_adc_start();
+
+    // 等待 DMA 缓冲区得到有效 ADC 采样值后再做零位校准。
+    HAL_Delay(10);
+    for (int i = 0; i < JOYSTICK_NUM; i++)
+    {
+        joystick_record_zero(&joysticks[i]);
+    }
+}
+
+static void joysticks_update(void)
+{
+    for (int i = 0; i < JOYSTICK_NUM; i++)
+    {
+        joystick_get_value(&joysticks[i]);
+    }
+}
 
 static void chassis_update(void)
 {
@@ -53,14 +77,23 @@ static void chassis_update(void)
 
 static void control_send(void)
 {
-    tx_buf[0] = 0xAA;
-    memcpy(tx_buf + 1, robotic_arm.pos, sizeof(robotic_arm.pos));
-    memcpy(tx_buf + 25, &chassis.vx, sizeof(chassis.vx));
-    memcpy(tx_buf + 29, &chassis.vy, sizeof(chassis.vy));
-    memcpy(tx_buf + 33, &chassis.vw, sizeof(chassis.vw));
-    tx_buf[37] = 0x55;
+    memset(tx_frame_1, 0, sizeof(tx_frame_1));
+    memset(tx_frame_2, 0, sizeof(tx_frame_2));
 
-    HAL_UART_Transmit(&huart1, tx_buf, sizeof(tx_buf), 10);
+    tx_frame_1[0] = 0xAA;
+    memcpy(tx_frame_1 + 1, robotic_arm.pos, sizeof(robotic_arm.pos));
+    tx_frame_1[28] = 0x55;
+
+    tx_frame_2[0] = 0xBB;
+    memcpy(tx_frame_2 + 1, &robotic_arm.pos[5], sizeof(robotic_arm.pos[5]));
+    memcpy(tx_frame_2 + 5, &chassis.vx, sizeof(chassis.vx));
+    memcpy(tx_frame_2 + 9, &chassis.vy, sizeof(chassis.vy));
+    memcpy(tx_frame_2 + 13, &chassis.vw, sizeof(chassis.vw));
+    tx_frame_2[17] = 0; // 升降台暂未实现，协议字段先固定发送 0。
+    tx_frame_2[28] = 0x55;
+
+    HAL_UART_Transmit(&huart1, tx_frame_1, sizeof(tx_frame_1), 10);
+    HAL_UART_Transmit(&huart1, tx_frame_2, sizeof(tx_frame_2), 10);
 }
 
 static void keys_init(void)
@@ -88,7 +121,7 @@ void control_task_init(void)
     chassis.vy = 0.0f;
     chassis.vw = 0.0f;
 
-    JOYSTICK_all_init(joysticks, CONTROL_JOYSTICK_NUM);
+    joysticks_init();
 
     keys_init();
 }
@@ -101,7 +134,7 @@ void control_task_init(void)
 void control_task_update(void)
 {
     leader_robotic_arm_get_pos(&robotic_arm);
-    JOYSTICK_all_get_value(joysticks, CONTROL_JOYSTICK_NUM);
+    joysticks_update();
     chassis_update();
     control_send();
 }

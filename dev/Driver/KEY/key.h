@@ -4,7 +4,11 @@
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 
-#define KEYS_NUM 9
+enum
+{
+    // 按键数量。修改 README 中 KEY0~KEY9 映射时，需要同步修改该值。
+    KEYS_NUM = 10
+};
 
 typedef struct{
     int id;

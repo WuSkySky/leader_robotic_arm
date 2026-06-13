@@ -110,7 +110,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    int sleep_time = 1/60.0*1000 - (HAL_GetTick() - start_time);
+    int sleep_time = 1/150.0*1000 - (HAL_GetTick() - start_time);
     if(sleep_time > 0)
     {
         HAL_Delay( sleep_time);
