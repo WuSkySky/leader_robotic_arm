@@ -8,11 +8,18 @@ enum
 {
     FEETECH_SERVO_NUM = 6,
     FEETECH_RX_FRAME_LEN = 8,
-    FEETECH_READ_POS_CMD_LEN = 8
+    FEETECH_SYNC_READ_CMD_LEN = 14,
+    FEETECH_ALL_SERVO_MASK = (1 << FEETECH_SERVO_NUM) - 1
 };
 
-// 位置请求超时时间，单位 ms。若舵机总线较慢或回包延迟明显，可适当增大。
-static const uint32_t FEETECH_REQUEST_TIMEOUT_MS = 5;
+// 同步读请求超时时间，单位 ms。若舵机总线较慢或回包延迟明显，可适当增大。
+static const uint32_t FEETECH_SYNC_READ_TIMEOUT_MS = 5;
+
+// FEETECH/SCS 协议字段，修改舵机型号或寄存器地址时需要同步确认手册。
+static const uint8_t FEETECH_BROADCAST_ID = 0xFE;
+static const uint8_t FEETECH_INST_SYNC_READ = 0x82;
+static const uint8_t FEETECH_PRESENT_POSITION_ADDR = 56;
+static const uint8_t FEETECH_PRESENT_POSITION_LEN = 2;
 
 static volatile int pos_raw_cache[FEETECH_SERVO_NUM];
 static volatile uint8_t pos_update_seq_cache[FEETECH_SERVO_NUM];
@@ -20,9 +27,9 @@ static volatile uint8_t rx_frame[FEETECH_RX_FRAME_LEN];
 static volatile uint8_t rx_index;
 static uint8_t rx_byte;
 static uint8_t rx_started;
-static uint8_t request_pending;
-static uint8_t request_id;
-static uint32_t request_tick;
+static uint8_t sync_read_pending;
+static uint8_t sync_read_received_mask;
+static uint32_t sync_read_tick;
 
 static int get_servo_index(int id)
 {
@@ -115,32 +122,38 @@ void FEETECH_servo_get_pos(FEETECHServo* servo)
     pos_normalize(servo);
 }
 
-void FEETECH_servo_request_pos(FEETECHServo* servo)
+void FEETECH_servo_request_all_pos(void)
 {
-    int index = get_servo_index(servo->id);
-    if (index < 0)
+    if (sync_read_pending && ((HAL_GetTick() - sync_read_tick) < FEETECH_SYNC_READ_TIMEOUT_MS))
     {
         return;
     }
 
-    if (request_pending && ((HAL_GetTick() - request_tick) < FEETECH_REQUEST_TIMEOUT_MS))
-    {
-        return;
-    }
+    uint8_t tx_buf[FEETECH_SYNC_READ_CMD_LEN];
+    uint8_t checksum_sum = 0;
 
-    uint8_t tx_buf[FEETECH_READ_POS_CMD_LEN];
     tx_buf[0] = 0xFF;
     tx_buf[1] = 0xFF;
-    tx_buf[2] = servo->id;
-    tx_buf[3] = 0x04;
-    tx_buf[4] = 0x02;
-    tx_buf[5] = 56;
-    tx_buf[6] = 2;
-    tx_buf[7] = (uint8_t)(~(tx_buf[2] + tx_buf[3] + tx_buf[4] + tx_buf[5] + tx_buf[6]));
+    tx_buf[2] = FEETECH_BROADCAST_ID;
+    tx_buf[3] = FEETECH_SERVO_NUM + 4;
+    tx_buf[4] = FEETECH_INST_SYNC_READ;
+    tx_buf[5] = FEETECH_PRESENT_POSITION_ADDR;
+    tx_buf[6] = FEETECH_PRESENT_POSITION_LEN;
 
-    request_pending = 1;
-    request_id = servo->id;
-    request_tick = HAL_GetTick();
+    for (int i = 0; i < FEETECH_SERVO_NUM; i++)
+    {
+        tx_buf[7 + i] = (uint8_t)(i + 1);
+    }
+
+    for (int i = 2; i < (FEETECH_SYNC_READ_CMD_LEN - 1); i++)
+    {
+        checksum_sum = (uint8_t)(checksum_sum + tx_buf[i]);
+    }
+    tx_buf[FEETECH_SYNC_READ_CMD_LEN - 1] = (uint8_t)(~checksum_sum);
+
+    sync_read_pending = 1;
+    sync_read_received_mask = 0;
+    sync_read_tick = HAL_GetTick();
     HAL_UART_Transmit(&huart3, tx_buf, sizeof(tx_buf), 2);
 }
 
@@ -163,9 +176,13 @@ static void process_rx_frame(void)
     pos_raw_cache[index] = (int)(pos_l | (pos_h << 8));
     pos_update_seq_cache[index]++;
 
-    if (request_pending && (request_id == id))
+    if (sync_read_pending)
     {
-        request_pending = 0;
+        sync_read_received_mask |= (uint8_t)(1 << index);
+        if (sync_read_received_mask == FEETECH_ALL_SERVO_MASK)
+        {
+            sync_read_pending = 0;
+        }
     }
 }
 
