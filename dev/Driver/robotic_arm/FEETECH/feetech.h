@@ -17,10 +17,13 @@ typedef struct
 
     int pos_in_mutil_cycle;
     int cycle;
+    int pos_update_seq;
 } FEETECHServo;
 
 void FEETECH_servo_init(FEETECHServo*, int);
 
 void FEETECH_servo_get_pos(FEETECHServo*);
+
+void FEETECH_servo_request_pos(FEETECHServo*);
 
 #endif

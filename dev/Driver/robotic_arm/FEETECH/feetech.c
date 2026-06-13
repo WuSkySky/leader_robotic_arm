@@ -4,21 +4,62 @@
 #include "main.h"
 #include "usart.h"
 
-static void recode_pos_raw(FEETECHServo* servo)
+enum
 {
-    servo->pos_raw = ReadPos(servo->id);
+    FEETECH_SERVO_NUM = 6,
+    FEETECH_RX_FRAME_LEN = 8,
+    FEETECH_READ_POS_CMD_LEN = 8
+};
+
+// 位置请求超时时间，单位 ms。若舵机总线较慢或回包延迟明显，可适当增大。
+static const uint32_t FEETECH_REQUEST_TIMEOUT_MS = 5;
+
+static volatile int pos_raw_cache[FEETECH_SERVO_NUM];
+static volatile uint8_t pos_update_seq_cache[FEETECH_SERVO_NUM];
+static volatile uint8_t rx_frame[FEETECH_RX_FRAME_LEN];
+static volatile uint8_t rx_index;
+static uint8_t rx_byte;
+static uint8_t rx_started;
+static uint8_t request_pending;
+static uint8_t request_id;
+static uint32_t request_tick;
+
+static int get_servo_index(int id)
+{
+    int index = id - 1;
+
+    if ((index < 0) || (index >= FEETECH_SERVO_NUM))
+    {
+        return -1;
+    }
+
+    return index;
 }
 
-static void recode_zero(FEETECHServo* servo)
+static void uart_rx_start(void)
 {
-    servo->pos_zero = servo->pos_raw;
-    servo->flag_has_recoded_zero = 1;
-    
+    if (!rx_started)
+    {
+        rx_started = 1;
+        HAL_UART_Receive_IT(&huart3, &rx_byte, 1);
+    }
 }
 
-static void proc_zero(FEETECHServo* servo)
+static void update_pos_raw_from_cache(FEETECHServo* servo)
 {
-    servo->pos_in_zero= servo->pos_raw - servo->pos_zero;
+    int index = get_servo_index(servo->id);
+    if (index < 0)
+    {
+        return;
+    }
+
+    if (servo->pos_update_seq == pos_update_seq_cache[index])
+    {
+        return;
+    }
+
+    servo->pos_raw = pos_raw_cache[index];
+    servo->pos_update_seq = pos_update_seq_cache[index];
 }
 
 static void proc_zero_in_middle_mode(FEETECHServo* servo)
@@ -56,19 +97,108 @@ void FEETECH_servo_init(FEETECHServo* servos, int id)
     servos->pos_in_zero_last = 0;
     servos->pos_in_mutil_cycle = 0;
     servos->cycle = 0;
+    servos->pos_update_seq = 0;
+    uart_rx_start();
 }
 
 void FEETECH_servo_get_pos(FEETECHServo* servo)
 {
-    recode_pos_raw(servo);
+    int last_update_seq = servo->pos_update_seq;
+    update_pos_raw_from_cache(servo);
+    if (last_update_seq == servo->pos_update_seq)
+    {
+        return;
+    }
 
-    // if (!servo->flag_has_recoded_zero) 
-    // {
-    //     recode_zero(servo);
-    // }
     proc_zero_in_middle_mode(servo);
     proc_mutil_cycle(servo);
     pos_normalize(servo);
+}
+
+void FEETECH_servo_request_pos(FEETECHServo* servo)
+{
+    int index = get_servo_index(servo->id);
+    if (index < 0)
+    {
+        return;
+    }
+
+    if (request_pending && ((HAL_GetTick() - request_tick) < FEETECH_REQUEST_TIMEOUT_MS))
+    {
+        return;
+    }
+
+    uint8_t tx_buf[FEETECH_READ_POS_CMD_LEN];
+    tx_buf[0] = 0xFF;
+    tx_buf[1] = 0xFF;
+    tx_buf[2] = servo->id;
+    tx_buf[3] = 0x04;
+    tx_buf[4] = 0x02;
+    tx_buf[5] = 56;
+    tx_buf[6] = 2;
+    tx_buf[7] = (uint8_t)(~(tx_buf[2] + tx_buf[3] + tx_buf[4] + tx_buf[5] + tx_buf[6]));
+
+    request_pending = 1;
+    request_id = servo->id;
+    request_tick = HAL_GetTick();
+    HAL_UART_Transmit(&huart3, tx_buf, sizeof(tx_buf), 2);
+}
+
+static void process_rx_frame(void)
+{
+    uint8_t id = rx_frame[2];
+    uint8_t len = rx_frame[3];
+    uint8_t status = rx_frame[4];
+    uint8_t pos_l = rx_frame[5];
+    uint8_t pos_h = rx_frame[6];
+    uint8_t checksum = rx_frame[7];
+    uint8_t cal_sum = (uint8_t)(~(id + len + status + pos_l + pos_h));
+    int index = get_servo_index(id);
+
+    if ((len != 4) || (checksum != cal_sum) || (index < 0))
+    {
+        return;
+    }
+
+    pos_raw_cache[index] = (int)(pos_l | (pos_h << 8));
+    pos_update_seq_cache[index]++;
+
+    if (request_pending && (request_id == id))
+    {
+        request_pending = 0;
+    }
+}
+
+static void uart_rx_parse_byte(uint8_t data)
+{
+    if (rx_index == 0)
+    {
+        if (data == 0xFF)
+        {
+            rx_frame[rx_index++] = data;
+        }
+        return;
+    }
+
+    if (rx_index == 1)
+    {
+        if (data == 0xFF)
+        {
+            rx_frame[rx_index++] = data;
+        }
+        else
+        {
+            rx_index = 0;
+        }
+        return;
+    }
+
+    rx_frame[rx_index++] = data;
+    if (rx_index >= FEETECH_RX_FRAME_LEN)
+    {
+        process_rx_frame();
+        rx_index = 0;
+    }
 }
 
 //FT舵机串口指令发送函数
@@ -91,4 +221,22 @@ int ftUart_Read(uint8_t *nDat, int nLen)
 void ftBus_Delay(void)
 {
 	HAL_Delay(1);
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        uart_rx_parse_byte(rx_byte);
+        HAL_UART_Receive_IT(&huart3, &rx_byte, 1);
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        rx_index = 0;
+        HAL_UART_Receive_IT(&huart3, &rx_byte, 1);
+    }
 }
